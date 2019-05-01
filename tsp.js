@@ -1,21 +1,25 @@
-var canvas = document.getElementById('canvas');
-var cx = canvas.getContext('2d');
-var tiles = {
+const canvas = document.getElementById('canvas');
+const cx = canvas.getContext('2d');
+const tiles = {
   FLOOR: 0,
   WALL: 1,
   CHIP: 2,
   PLAYER: 3,
   EXIT: 4
 };
-var map = [];
-var SIZE_X = 32;
-var SIZE_Y = 32;
-var IMAGE_SIZE = 24;
-var selection = tiles.WALL;
-var image = new Image();
-var playerCoords = new Coord(1, 1);
-var exitCoords = new Coord(SIZE_X - 2, SIZE_Y - 2);
-var stop = true;
+let map = [];
+const SIZE_X = 32;
+const SIZE_Y = 32;
+const IMAGE_SIZE = 24;
+let selection = tiles.WALL;
+const image = new Image();
+let playerCoords = new Coord(1, 1);
+let exitCoords = new Coord(SIZE_X - 2, SIZE_Y - 2);
+let stop = true;
+let rectX = 0;
+let rectY = 0;
+let absoluteBestPath = [];
+let absoluteBestChips = [];
 
 function Coord(x, y) {
   this.x = x;
@@ -27,11 +31,20 @@ function QueueItem(coord, distance) {
   this.distance = distance;
 }
 
+canvas.addEventListener('mousemove', function(e) {
+  const x = Math.floor(e.offsetX/IMAGE_SIZE);
+  const y = Math.floor(e.offsetY/IMAGE_SIZE);
+  rectX = x * IMAGE_SIZE;
+  rectY = y * IMAGE_SIZE;
+  draw();
+});
+
 canvas.addEventListener('click', function(e){
-  var x = Math.floor(e.offsetX/IMAGE_SIZE);
-  var y = Math.floor(e.offsetY/IMAGE_SIZE);
+  const x = Math.floor(e.offsetX/IMAGE_SIZE);
+  const y = Math.floor(e.offsetY/IMAGE_SIZE);
   
-  if(x == playerCoords.x && y == playerCoords.y) {
+  if((x == playerCoords.x && y == playerCoords.y) ||
+     (x == exitCoords.x && y == exitCoords.y)) {
     return;
   }
   
@@ -47,35 +60,36 @@ canvas.addEventListener('click', function(e){
 	exitCoords.y = y;
   }
   
+  absoluteBestPath = [];
+  absoluteBestChips = [];
+  
   map[y][x] = selection;
   draw();
 });
 
-document.getElementById('buttonAnneal').addEventListener('click', () => tsp(false));
+document.getElementById('buttonAnneal').addEventListener('click', () => tsp());
 
 document.getElementById('buttonStop').addEventListener('click', () => stop = true);
 
-document.addEventListener('keydown', function(e){
-  var key = parseInt(e.key);
-  if(key >= 1 && key <= 5)
-	selection = key - 1;
-});
+document.getElementById('levelClear').addEventListener('click', () => clear());
 
-document.getElementById("coolingSlider").addEventListener('input', function() {
-  document.getElementById("coolingValue").innerHTML = document.getElementById("coolingSlider").value/1000;
-});
+document.getElementById('levelBlobnet').addEventListener('click', () => blobnet());
 
-document.getElementById("iterSlider").addEventListener('input', function() {
-  document.getElementById("iterValue").innerHTML = document.getElementById("iterSlider").value;
-});
+document.getElementById("coolingSlider").addEventListener('input', () =>
+  document.getElementById("coolingValue").innerHTML = document.getElementById("coolingSlider").value/1000
+);
 
-document.getElementById("tempStartSlider").addEventListener('input', function() {
-  document.getElementById("tempStartValue").innerHTML = document.getElementById("tempStartSlider").value;
-});
+document.getElementById("iterSlider").addEventListener('input', () =>
+  document.getElementById("iterValue").innerHTML = document.getElementById("iterSlider").value
+);
 
-document.getElementById("tempMinSlider").addEventListener('input', function() {
-  document.getElementById("tempMinValue").innerHTML = document.getElementById("tempMinSlider").value/100;
-});
+document.getElementById("tempStartSlider").addEventListener('input', () =>
+  document.getElementById("tempStartValue").innerHTML = document.getElementById("tempStartSlider").value
+);
+
+document.getElementById("tempMinSlider").addEventListener('input', () =>
+  document.getElementById("tempMinValue").innerHTML = document.getElementById("tempMinSlider").value/100
+);
 
 function init() {
   for(let i = 0; i < SIZE_Y; i++) {
@@ -91,6 +105,15 @@ function init() {
   image.src = 'tilesMedium.png';
   map[playerCoords.y][playerCoords.x] = tiles.PLAYER;
   map[exitCoords.y][exitCoords.x] = tiles.EXIT;
+  
+  const sel = document.querySelectorAll('.tile');
+  for(let i = 0; i < sel.length; i++) {
+    sel[i].addEventListener('click', function(){
+        sel[selection].classList.remove('selected');
+        selection = i;
+        sel[i].classList.add('selected');
+    })
+  }
 }
 
 function draw() {
@@ -100,14 +123,18 @@ function draw() {
 	  cx.drawImage(image,
 	  map[i][j] * IMAGE_SIZE, 0, IMAGE_SIZE, IMAGE_SIZE,
 	  j * IMAGE_SIZE, i * IMAGE_SIZE, IMAGE_SIZE, IMAGE_SIZE);
+  cx.strokeStyle = '#000000';
+  cx.lineWidth = 1;
+  cx.strokeRect(rectX, rectY, IMAGE_SIZE, IMAGE_SIZE);
+  drawBestPath(absoluteBestPath, absoluteBestChips);
 }
 
 //TRAVELLING SALESMAN PROBLEM
 function tsp() {
   stop = false;
-  var graph = []; //Adjacency graph for graph
-  var v = [new Coord(playerCoords.x, playerCoords.y)]; //Initialize the player as part of the graph
-  var chips = 0;
+  let graph = []; //Adjacency graph for graph
+  let v = [new Coord(playerCoords.x, playerCoords.y)]; //Initialize the player as part of the graph
+  let chips = 0;
   
   //Find all v and store their coordinates
   for(let i = 0; i < SIZE_Y; i++)
@@ -116,6 +143,9 @@ function tsp() {
 	    v.push(new Coord(j, i));
 		chips++;
 	  }
+  if(chips < 2) {
+    return;
+  }
 	  
   //Same for exit
   v.push(new Coord(exitCoords.x, exitCoords.y));
@@ -136,16 +166,16 @@ function tsp() {
 }
 
 function bfs(graph, v, i) {
-  var visited = []; //Map of visited tiles
+  let visited = []; //Map of visited tiles
   for(let i = 0; i < SIZE_Y; i++) {
     visited.push([]);
     for(let j = 0; j < SIZE_X; j++)
 	  visited[i].push(false);
   }
-  var q = [new QueueItem(v[i], 0)]; //Queue for BFS starting at item i
+  let q = [new QueueItem(v[i], 0)]; //Queue for BFS starting at item i
   
   while(q.length > 0) { //While there are tiles to be visited
-    var tile = q.shift(); //Take first item in queue
+    const tile = q.shift(); //Take first item in queue
 	
 	if(visited[tile.coord.y][tile.coord.x] == false && map[tile.coord.y][tile.coord.x] != tiles.WALL) { //If not visited and not a wall
 	  visited[tile.coord.y][tile.coord.x] = true;
@@ -185,14 +215,15 @@ function randomPerm(n) {
 
 //Simulated annealing
 function annealing(graph, chips, v) {
-  var ITERATIONS = document.getElementById("iterSlider").value;
-  var MIN_TEMP = document.getElementById("tempMinSlider").value/100;
-  var temperature = document.getElementById("tempStartSlider").value;
-  var cooling = document.getElementById("coolingSlider").value/1000;
-  var bestPath = randomPerm(chips + 2); 
-  var bestDistance = calculateDistance(graph, bestPath);
-  var absoluteBestPath = [...bestPath];
-  var absoluteBestDistance = bestDistance;
+  const ITERATIONS = document.getElementById("iterSlider").value;
+  const MIN_TEMP = document.getElementById("tempMinSlider").value/100;
+  let temperature = document.getElementById("tempStartSlider").value;
+  const cooling = document.getElementById("coolingSlider").value/1000;
+  let bestPath = randomPerm(chips + 2); 
+  let bestDistance = calculateDistance(graph, bestPath);
+  absoluteBestPath = [...bestPath];
+  let absoluteBestDistance = bestDistance;
+  absoluteBestChips = [...v];
   anneal();
   
   function anneal() {
@@ -201,7 +232,7 @@ function annealing(graph, chips, v) {
 		temperature *= cooling;
 		let startDistance = bestDistance;
 		
-		for(let i =0; i < ITERATIONS; i++) {
+		for(let i = 0; i < ITERATIONS; i++) {
 		  let path = [...bestPath];
 		  
 		  let r = Math.random();
@@ -243,7 +274,7 @@ function annealing(graph, chips, v) {
 		let time = parseInt(document.getElementById('time').value);
 		document.getElementById('besttime').innerHTML = "Finish time: " + (time + 1 - absoluteBestDistance/5);
 		document.getElementById('timeLeft').innerHTML = "Temperature: " + temperature + " / " + MIN_TEMP;
-		drawBestPath(absoluteBestPath, v);
+		draw();
 		
 		if(bestDistance < startDistance) //Restart temperature when better solution is found
 			temperature /= cooling;
@@ -251,19 +282,21 @@ function annealing(graph, chips, v) {
   }
   let time = parseInt(document.getElementById('time').value);
   document.getElementById('besttime').innerHTML = "Finish time: " + (time + 1 - absoluteBestDistance/5);
-  drawBestPath(absoluteBestPath, v);
+  draw();
   return absoluteBestPath;
 }
 
 function calculateDistance(graph, path) {
-  distance = 0;
+  let distance = 0;
   for(let i = 1; i < path.length; i++)
 	distance += graph[path[i - 1]][path[i]];
   return distance;
 }
 
 function drawBestPath(path, v) {
-  draw();
+  if(path.length === 0 || v.length === 0) {
+    return;
+  }
   cx.strokeStyle = '#FF0000';
   cx.lineWidth = 3;
 
@@ -279,6 +312,24 @@ function findCoord(arr, coord) {
 	if(arr[i].x == coord.x && arr[i].y == coord.y)
 	  return i;
   return -1;
+}
+
+function blobnet() {
+    map = [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,3,0,0,0,0,0,2,0,0,0,0,0,0,0,0,1],[1,0,0,0,2,0,0,2,0,0,0,0,0,0,2,0,0,2,0,0,0,0,0,0,2,0,0,2,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,2,0,0,0,0,0,0,2,0,0,2,0,0,0,0,0,0,2,0,0,2,0,0,0,0,0,0,2,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,2,0,0,0,0,0,0,2,0,0,2,0,0,0,0,0,0,2,0,0,2,0,0,0,0,0,0,2,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,2,0,0,2,0,0,2,0,0,0,2,0,0,2,0,0,2,0,0,2,0,0,0,2,0,0,2,0,0,2,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,1],[1,0,0,0,2,0,0,2,0,0,0,0,0,0,2,0,0,2,0,0,0,0,0,0,2,0,0,2,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,2,0,0,0,0,0,0,2,0,0,2,0,1,1,1,1,0,2,0,0,2,0,0,0,0,0,0,2,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,4,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,2,0,0,0,0,0,0,2,0,0,2,0,1,0,0,1,0,2,0,0,2,0,0,0,0,0,0,2,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,2,0,0,2,0,0,0,0,0,0,2,0,0,2,0,0,0,0,0,0,2,0,0,2,0,0,0,1],[1,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,2,0,0,2,0,0,2,0,0,0,2,0,0,2,0,0,2,0,0,2,0,0,0,2,0,0,2,0,0,2,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,2,0,0,0,0,0,0,2,0,0,2,0,0,0,0,0,0,2,0,0,2,0,0,0,0,0,0,2,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,2,0,0,0,0,0,0,2,0,0,2,0,0,0,0,0,0,2,0,0,2,0,0,0,0,0,0,2,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,2,0,0,2,0,0,0,0,0,0,2,0,0,2,0,0,0,0,0,0,2,0,0,2,0,0,0,1],[1,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]];
+    playerCoords = new Coord(16, 1);
+    exitCoords = new Coord(16, 15);
+    absoluteBestPath = [];
+    absoluteBestChips = [];
+    draw();
+}
+
+function clear() {
+    map = [[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]];
+    playerCoords = new Coord(1, 1);
+    exitCoords = new Coord(SIZE_X - 2, SIZE_Y - 2);
+    absoluteBestPath = [];
+    absoluteBestChips = [];
+    draw();
 }
 
 init();

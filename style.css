@@ -1,0 +1,73 @@
+body {
+    background-color: rgb(128, 128, 160)
+}
+
+#content {
+    display: flex;
+}
+	  
+#instructions {
+    margin-left: 32px;
+}
+	  
+#annealing, #genetic, #results, #levels {
+    border: 4px solid rgb(64, 64, 80);
+    border-radius: 32px;
+    margin: 12px;
+    padding: 12px;
+    background-color: rgb(112, 112, 140);
+}
+
+#results {
+    min-height: 80px;
+}
+	  
+button {
+    font-size: 24px; 
+    width: 120px; 
+    background-color: rgb(160, 160, 200);
+    border: 2px solid rgb(64, 64, 80);    
+    border-radius: 10px;
+    text-align: center;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: rgb(192, 192, 240);
+}
+	  
+input { 
+    font-size: 18px; 
+    font-weight: bold; 
+}
+
+[id*="tile"] {
+    width: 32px;
+    height: 32px;
+    background: url("tiles.png");
+}
+
+#selection {
+    display: flex;
+    margin: 20px;
+}
+
+#tileWall {
+    background-position: -32px;
+}
+
+#tileChip {
+    background-position: -64px;
+}
+
+#tilePlayer {
+    background-position: -96px;
+}
+
+#tileExit {
+    background-position: -128px;
+}
+
+.selected {
+    box-shadow: inset 0 0 8px 4px yellow;
+}

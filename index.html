@@ -1,71 +1,38 @@
 <HTML>
   <HEAD>
     <TITLE> Chip's Challenge TSP Solver </TITLE>
-	<STYLE>
-	  #canvas {
-	    float: left;
-	  }
-	  
-	  #options {
-	    float: left;
-	  }
-	  
-	  #instructions {
-	    margin-left: 32px;
-	  }
-	  
-	  #annealing, #genetic, #results {
-	    border-style: solid;
-		border-width: 4px;
-		border-color: #333388;
-		border-radius: 32px;
-		margin: 12px;
-		padding: 12px;
-		background-color: #8888DD;
-	  }
-	  
-	  button {
-	    font-size: 24px; 
-		width: 120px; 
-		background-color: #BBBBFF; 
-		border-radius: 10px; 
-		border-style: solid; 
-		border-color: #3333FF; 
-		text-align: center;
-	  }
-	  
-	  input { 
-	    font-size: 18px; 
-	    font-weight: 700; 
-	  }
-	</STYLE>
+	<LINK REL="stylesheet" HREF="style.css" />
   </HEAD>
   <BODY>
-    <CANVAS ID="canvas" WIDTH="768" HEIGHT="768"> </CANVAS>
-	<DIV ID="options">
-	  <DIV ID="annealing">
-		Starting time: <INPUT TYPE="text" VALUE="500" ID="time"> <BR>
-		Cooling factor (between 0.8 and 0.995): <INPUT TYPE="range" MIN="800" MAX="995" VALUE="950" ID="coolingSlider"> <SPAN ID="coolingValue">0.95</SPAN><BR>
-		Number of iterations per temperature (between 1000 and 100000): <INPUT TYPE="range" MIN="1000" MAX="100000" VALUE="5000" ID="iterSlider"> <SPAN ID="iterValue">5000</SPAN><BR>
-		Starting temperature (between 10 and 10000): <INPUT TYPE="range" MIN="10" MAX="10000" VALUE="100" ID="tempStartSlider"> <SPAN ID="tempStartValue">100</SPAN><BR>
-		Minimum temperature (between 0.01 and 10): <INPUT TYPE="range" MIN="1" MAX="1000" VALUE="10" ID="tempMinSlider"> <SPAN ID="tempMinValue">0.1</SPAN><BR>
-		<BUTTON ID="buttonAnneal"> Calculate! </BUTTON>
+    <DIV ID="content">
+      <CANVAS ID="canvas" WIDTH="768" HEIGHT="768"> </CANVAS>
+      <DIV ID="options">
+        <DIV ID="annealing">
+          Starting time: <INPUT TYPE="text" VALUE="500" ID="time"> <BR>
+          Cooling factor (between 0.8 and 0.995): <INPUT TYPE="range" MIN="800" MAX="995" VALUE="950" ID="coolingSlider"> <SPAN ID="coolingValue">0.95</SPAN><BR>
+          Number of iterations per temperature (between 1000 and 20000): <INPUT TYPE="range" MIN="1000" MAX="20000" VALUE="2000" ID="iterSlider"> <SPAN ID="iterValue">2000</SPAN><BR>
+          Starting temperature (between 10 and 1000): <INPUT TYPE="range" MIN="10" MAX="1000" VALUE="100" ID="tempStartSlider"> <SPAN ID="tempStartValue">100</SPAN><BR>
+          Minimum temperature (between 0.01 and 10): <INPUT TYPE="range" MIN="1" MAX="1000" VALUE="10" ID="tempMinSlider"> <SPAN ID="tempMinValue">0.1</SPAN><BR>
+          <BUTTON ID="buttonAnneal"> Calculate! </BUTTON>
+        </DIV>
+        <DIV ID="results">
+          <BUTTON ID="buttonStop"> STOP </BUTTON>
+          <DIV ID="besttime"></DIV>
+          <DIV ID="timeLeft"></DIV>
+        </DIV>
+        <DIV ID="selection">
+          <DIV ID="tileFloor" CLASS="tile"></DIV>
+          <DIV ID="tileWall" CLASS="tile selected"></DIV>
+          <DIV ID="tileChip" CLASS="tile"></DIV>
+          <DIV ID="tilePlayer" CLASS="tile"></DIV>
+          <DIV ID="tileExit" CLASS="tile"></DIV>
+        </DIV>
       </DIV>
-	  <DIV ID="results">
-		<DIV ID="besttime"></DIV>
-		<DIV ID="timeLeft"></DIV>
-		<BUTTON ID="buttonStop"> STOP </BUTTON>
-	  </DIV>
-	  <DIV ID="instructions">
-		Press: <BR>
-		1 for Floor <BR>
-		2 for Wall <BR>
-		3 for Chip <BR>
-		4 for Player <BR>
-		5 for Exit <BR>
-	  </DIV>
-	</DIV>
-	<BR>
-	<SCRIPT SRC="tsp.js"> </SCRIPT>
+    </DIV>
+    <DIV ID="levels">
+      <BUTTON ID="levelClear"> Clear </BUTTON>
+      <BUTTON ID="levelBlobnet"> Blobnet </BUTTON>
+    </DIV>
+    <SCRIPT SRC="tsp.js"> </SCRIPT>
   </BODY>
 </HTML>
